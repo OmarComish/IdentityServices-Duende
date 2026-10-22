@@ -12,7 +12,6 @@ namespace IdentityService.Controllers
         private readonly ILogger<AccountController> _logger;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
-
         private readonly SignInManager<ApplicationUser> _signInManager;
         public AccountController(ILogger<AccountController> logger, 
         UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager,
@@ -74,14 +73,34 @@ namespace IdentityService.Controllers
             var user = await _userManager.FindByNameAsync(request.Username);
 
             if(user == null)
-              return Unauthorized(new {Message="Invalid username or password"});
+              return Unauthorized(new LogInResponse{Status="error",Message="Invalid username or password"});
             
             var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, false);
 
             if(!result.Succeeded)
-              return Unauthorized( new {Message="Invalid username or password"});
+              return Unauthorized( new LogInResponse{Status="error",Message="Invalid username or password"});
 
-            return Ok(new {Message ="Login successful"});
+            var roles = await _userManager.GetRolesAsync(user);
+
+            return Ok(new LogInResponse
+            {
+              Status = "success",
+              Message ="Login successful",
+              UserId = user.Id,
+              Username = user.UserName,
+              Email = user.Email,
+              Roles = roles
+            });
         }
+
+        [AllowAnonymous]
+        [HttpGet("{email}")]
+        public async Task<IActionResult> GetUserDetailsByEmail(string email)
+         {
+            if(string.IsNullOrEmpty(email))
+               return BadRequest("Null or invalid email");
+             var response = await _userManager.FindByEmailAsync(email);
+             return Ok(response);
+         }
     }
 }

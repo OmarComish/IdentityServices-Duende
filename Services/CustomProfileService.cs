@@ -17,18 +17,34 @@ public class CustomProfileService : IProfileService
     public async Task GetProfileDataAsync(ProfileDataRequestContext context)
     {
         var user = await _userManager.GetUserAsync(context.Subject);
-        var existingClaims = await _userManager.GetClaimsAsync(user);
+
+        if(user == null) return;
         var claims = new List<Claim>
         {
             new Claim("username", user.UserName),
             new Claim("Id", user.Id.ToString())
         };
+        
+        //Add name claim from existing claims if available, otherwise ass usernam claim
+        var existingClaims = await _userManager.GetClaimsAsync(user);
+        var nameClaim = existingClaims.FirstOrDefault(x=>x.Type == JwtClaimTypes.Name);
+
+        if(nameClaim != null)
+        
+            claims.Add(nameClaim);
+        else
+            claims.Add(new Claim(JwtClaimTypes.Name, user.UserName?? ""));
+
+
         context.IssuedClaims.AddRange(claims);
-        context.IssuedClaims.Add(existingClaims.FirstOrDefault(x => x.Type == JwtClaimTypes.Name));
+        //context.IssuedClaims.Add(existingClaims.FirstOrDefault(x => x.Type == JwtClaimTypes.Name));
     }
 
     public Task IsActiveAsync(IsActiveContext context)
     {
+        //var user = await _userManager.GetUserAsync(context.Subject);
+        //context.IsActive = user!= null && !user.LockoutEnabled;
         return Task.CompletedTask;
+        
     }
 }
