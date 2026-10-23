@@ -86,7 +86,8 @@ internal static class HostingExtensions
         {
             options.Cookie.SameSite = SameSiteMode.Lax;
          });
-
+         
+        builder.Services.AddLocalApiAuthentication();
         builder.Services.AddAuthentication();
           /*
             .AddOpenIdConnect("oidc", "Sign-in with demo.duendesoftware.com", options =>

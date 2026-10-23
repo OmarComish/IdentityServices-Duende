@@ -1,3 +1,4 @@
+using Duende.IdentityServer;
 using Duende.IdentityServer.Models;
 
 namespace IdentityService;
@@ -24,6 +25,7 @@ public static class Config
         new ApiScope[]
         {
             new ApiScope("casemanagementApp", "Tripple C app full access"),
+            new ApiScope(IdentityServerConstants.LocalApi.ScopeName)
         };
 
     public static IEnumerable<Client> Clients =>
@@ -37,6 +39,14 @@ public static class Config
              RedirectUris ={"https://www.getpostman.com/auth2/callback"},
              ClientSecrets = new []{new Secret("NotASecret".Sha256())},
              AllowedGrantTypes = {GrantType.ResourceOwnerPassword}
-            }
+            },
+             new Client
+           {
+             ClientId = "hotel-api-admin",
+             ClientName = "Hotel API (account administration)",
+             ClientSecrets = { new Secret("DevAdminSecret-ChangeMe".Sha256()) },
+             AllowedGrantTypes = GrantTypes.ClientCredentials,
+             AllowedScopes = { IdentityServerConstants.LocalApi.ScopeName }
+           }
         };
 }
