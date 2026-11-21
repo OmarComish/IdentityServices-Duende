@@ -1,7 +1,9 @@
 using IdentityService.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Duende.IdentityServer;
 
 namespace IdentityService.Controllers
 {
@@ -13,19 +15,22 @@ namespace IdentityService.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IConfiguration _config;
         public AccountController(ILogger<AccountController> logger, 
         UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager,
-         SignInManager<ApplicationUser> signInManager)
+         SignInManager<ApplicationUser> signInManager,IConfiguration config)
         {
             _logger = logger;
             _roleManager = roleManager;
             _userManager = userManager;
             _signInManager = signInManager;
+            _config = config;
         }
         [AllowAnonymous]
         [HttpPost("register")]
         public async Task<ActionResult> Register([FromBody] RegisterUserRequest request)
         {
+            if (!await IsCallerAllowedAsync()) return Unauthorized();
             if(!ModelState.IsValid)
                 return BadRequest(ModelState);
             var user = new ApplicationUser
@@ -43,7 +48,7 @@ namespace IdentityService.Controllers
 
             return Ok(new {Message = $"User {request.UserName} registred successfully", Status ="success"});
         }
-        [AllowAnonymous]
+        [Authorize(IdentityServerConstants.LocalApi.PolicyName)]
         [HttpPost("assign-roles")]
         public async Task<IActionResult> AssignRole([FromBody] AssignRoleRequest request)
         {
@@ -75,7 +80,7 @@ namespace IdentityService.Controllers
             if(user == null)
               return Unauthorized(new LogInResponse{Status="error",Message="Invalid username or password"});
             
-            var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, false);
+            var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, true);
 
             if(!result.Succeeded)
               return Unauthorized( new LogInResponse{Status="error",Message="Invalid username or password"});
@@ -92,15 +97,26 @@ namespace IdentityService.Controllers
               Roles = roles
             });
         }
-
-        [AllowAnonymous]
+        [Authorize(IdentityServerConstants.LocalApi.PolicyName)]
         [HttpGet("{email}")]
         public async Task<IActionResult> GetUserDetailsByEmail(string email)
-         {
-            if(string.IsNullOrEmpty(email))
-               return BadRequest("Null or invalid email");
-             var response = await _userManager.FindByEmailAsync(email);
-             return Ok(response);
-         }
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return BadRequest("Null or invalid email");
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user is null)
+                return NotFound();
+
+            return Ok(new { user.Id, user.UserName, user.Email });
+        }
+        private async Task<bool> IsCallerAllowedAsync()
+        {
+            if (!_config.GetValue<bool>("Security:RequireTokenForAccountApi"))
+                return true;
+
+            var result = await HttpContext.AuthenticateAsync(IdentityServerConstants.LocalApi.AuthenticationScheme);
+            return result.Succeeded;
+        }
     }
 }

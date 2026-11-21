@@ -1,2 +1,3 @@
 diagnostics/*
 obj/Debug/*
+bin/Debug/net8.0/*
